@@ -1,23 +1,19 @@
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity >=0.8.0 <0.9.6;
 //SPDX-License-Identifier: MIT
 
-//write a smart contract that will give three subscription tiers to users who pay a certain amount of ether
-//the first tier will be equal to 5 usd and will be for 1 month subscription, the second tier will be equal to 25 usd and will be for 6 months subscription, and the third tier will be equal to 15 usd and will be for 6 months subscription
-//the third tier will be equal to 45 usd and will be for 12 months subscription
-//the contract will have a function that will allow the user to pay the subscription fee and will give them the subscription tier they paid for
-//the contract will have a read only function that will allow anyone to check a user's subscription status
-//the contract will have a function that will allow the owner to withdraw the funds from the contract
-//the contract will have a function that will allow the owner to change the subscription fee for each tier
-//the contract will have a function that will allow the owner to change the subscription duration for each tier
-
+//errors
+//minimum subscription tier is 1
+//make a revert error instead of require
 
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+
+error NoEtherSent( uint256 value, uint256 min );
+
 
 
 contract YourContract is Ownable {
-    using SafeMath for uint256;
 
 //set the owner of the contract to 0x30fA487ee1b335b5f76aF590f2452d83BaAA71fC
     constructor() {
@@ -30,6 +26,9 @@ contract YourContract is Ownable {
     }
 
     mapping(address => Subscription) public subscriptions;
+
+    uint256 min = 0.05 ether;
+
 
     uint256 public tier1Price = .05 ether;
     uint256 public tier2Price = .25 ether;
@@ -48,7 +47,7 @@ contract YourContract is Ownable {
             "Invalid price"
         );
 
-        subscriptions[msg.sender] = Subscription(_tier, block.timestamp.add(
+        subscriptions[msg.sender] = Subscription(_tier, block.timestamp + (
             _tier == 1 ? tier1Duration :
             _tier == 2 ? tier2Duration :
             tier3Duration
@@ -61,16 +60,16 @@ contract YourContract is Ownable {
     receive() external payable {
         require(msg.value > 0, "No ether sent");
         if (msg.value >= tier3Price) {
-            subscriptions[msg.sender] = Subscription(3, block.timestamp.add(tier3Duration));
-            payable(msg.sender).transfer(msg.value.sub(tier3Price));
+            subscriptions[msg.sender] = Subscription(3, block.timestamp+(tier3Duration));
+            payable(msg.sender).transfer(msg.value-(tier3Price));
         } else if (msg.value >= tier2Price) {
-            subscriptions[msg.sender] = Subscription(2, block.timestamp.add(tier2Duration));
-            payable(msg.sender).transfer(msg.value.sub(tier2Price));
+            subscriptions[msg.sender] = Subscription(2, block.timestamp+(tier2Duration));
+            payable(msg.sender).transfer(msg.value-(tier2Price));
         } else if (msg.value >= tier1Price) {
-            subscriptions[msg.sender] = Subscription(3, block.timestamp.add(tier1Duration));
-            payable(msg.sender).transfer(msg.value.sub(tier1Price));
+            subscriptions[msg.sender] = Subscription(3, block.timestamp+(tier1Duration));
+            payable(msg.sender).transfer(msg.value-(tier1Price));
         } else {
-            revert("Not enough ether sent");
+            revert NoEtherSent(msg.value, min);
         }
     }
 
